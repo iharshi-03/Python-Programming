@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlucoWatch - Diabetes Monitoring System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.4/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0"></script>
+    <style>
+        :root {
+            --primary: #4a6fa5;
+            --secondary: #166088;
+            --accent: #4cb5ae;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --success: #2ecc71;
+            --info: #3498db;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7f9;
+            color: #333;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+        
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border: none;
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary);
+            border-color: var(--secondary);
+        }
+        
+        .risk-low {
+            color: var(--success);
+            font-weight: bold;
+        }
+        
+        .risk-moderate {
+            color: var(--warning);
+            font-weight: bold;
+        }
+        
+        risk-high {
+            color: var(--danger);
+            font-weight: bold;
+        }
+        
+        .metric-card {
+            text-align: center;
+            padding: 15px;
+            transition: transform 0.3s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            color: var(--dark);
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        
+        .input-highlight {
+            border-left: 4px solid var(--accent);
+            background-color: rgba(76, 181, 174, 0.1);
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .mobile-preview {
+            background-color: #f1f1f1;
+            border-radius: 25px;
+            padding: 20px;
+            border: 4px solid #333;
+            max-width: 320px;
+            margin: 0 auto;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .mobile-screen {
+            background-color: white;
+            border-radius: 20px;
+            padding: 15px;
+            height: 500px;
+            overflow-y: auto;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+        
+        .app-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin: 0 auto 15px;
+        }
+        
+        .mobile-nav {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .nav-item {
+            text-align: center;
+            color: #777;
+            font-size: 12px;
+        }
+        
+        .nav-item.active {
+            color: var(--primary);
+        }
+        
+        .nav-item i {
+            display: block;
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        
+        .form-check-input:checked {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .prediction-result {
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            background-color: rgba(46, 204, 113, 0.1);
+            border-left: 4px solid var(--success);
+        }
+        
+        .risk-high {
+            background-color: rgba(231, 76, 60, 0.1);
+            border-left: 4px solid var(--danger);
+        }
+        
+        .risk-moderate {
+            background-color: rgba(243, 156, 18, 0.1);
+            border-left: 4px solid var(--warning);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-heartbeat me-2"></i>
+                GlucoWatch
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#"><i class="fas fa-home me-1"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fas fa-chart-line me-1"></i> Analytics</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fas fa-history me-1"></i> History</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fas fa-user me-1"></i> Profile</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <!-- Left Column - Input Form -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-edit me-2"></i> Health Data Input
+                    </div>
+                    <div class="card-body">
+                        <div class="input-highlight">
+                            <small class="text-muted">All fields are required for accurate prediction</small>
+                        </div>
+                        
+                        <form id="healthForm">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="glucoseLevel" class="form-label">Glucose Level (mg/dL)</label>
+                                    <input type="number" class="form-control" id="glucoseLevel" min="70" max="400" required>
+                                    <div class="form-text">Normal range: 70-130 mg/dL (fasting)</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="hba1c" class="form-label">HbA1c (%)</label>
+                                    <input type="number" step="0.1" class="form-control" id="hba1c" min="4.0" max="15.0" required>
+                                    <div class="form-text">Normal range: Below 5.7%</div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="bpSystolic" class="form-label">Blood Pressure (Systolic)</label>
+                                    <input type="number" class="form-control" id="bpSystolic" min="80" max="200" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="bpDiastolic" class="form-label">Blood Pressure (Diastolic)</label>
+                                    <input type="number" class="form-control" id="bpDiastolic" min="50" max="130" required>
+                                    <div class="form-text">Normal: Below 120/80 mmHg</div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="bmi" class="form-label">BMI</label>
+                                    <input type="number" step="0.1" class="form-control" id="bmi" min="15" max="50" required>
+                                    <div class="form-text">Healthy range: 18.5-24.9</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="age" class="form-label">Age</label>
+                                    <input type="number" class="form-control" id="age" min="18" max="100" required>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="activityLevel" class="form-label">Activity Level (1-10)</label>
+                                <input type="range" class="form-range" id="activityLevel" min="1" max="10" step="1">
+                                <div class="d-flex justify-content-between">
+                                    <small>Sedentary</small>
+                                    <small>Active</small>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="familyHistory">
+                                    <label class="form-check-label" for="familyHistory">
+                                        Family history of diabetes
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="medicationAdherence" class="form-label">Medication Adherence (%)</label>
+                                <input type="range" class="form-range" id="medicationAdherence" min="0" max="100" step="5">
+                                <div class="d-flex justify-content-between">
+                                    <small>Poor</small>
+                                    <small>Excellent</small>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="notes" class="form-label">Notes</label>
+                                <textarea class="form-control" id="notes" rows="2"></textarea>
+                            </div>
+                            
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <button type="button" class="btn btn-outline-secondary me-md-2" id="btnLoadSample">
+                                    <i class="fas fa-vial me-1"></i> Load Sample
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-calculator me-1"></i> Calculate Risk
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div id="predictionResult" class="prediction-result d-none">
+                            <h5>Risk Prediction Result</h5>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span id="riskCategory" class="risk-low">Low Risk</span>
+                                    <div class="text-muted" id="riskProbability">Probability: 25%</div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="text-muted" id="confidenceScore">Confidence: 92%</div>
+                                    <div class="text-muted small" id="calculationTime">Calculated just now</div>
+                                </div>
+                            </div>
+                            <div id="riskInterpretation" class="mt-2">
+                                Your current health metrics suggest a low risk for diabetes complications.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <i class="fas fa-mobile-alt me-2"></i> Mobile App Integration
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">Sync your data with our mobile app for continuous monitoring</p>
+                        
+                        <div class="mobile-preview">
+                            <div class="mobile-screen">
+                                <div class="status-bar">
+                                    <span>9:41</span>
+                                    <span>
+                                        <i class="fas fa-signal me-1"></i>
+                                        <i class="fas fa-wifi me-1"></i>
+                                        <i class="fas fa-battery-three-quarters"></i>
+                                    </span>
+                                </div>
+                                
+                                <div class="app-icon">
+                                    GW
+                                </div>
+                                
+                                <h5 class="text-center mb-4">GlucoWatch Mobile</h5>
+                                
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>Glucose</span>
+                                        <span id="mobileGlucose">--</span>
+                                    </div>
+                                    <div class="progress">
+                                        <div class="progress-bar" role="progressbar" style="width: 60%"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>HbA1c</span>
+                                        <span id="mobileHba1c">--</span>
+                                    </div>
+                                    <div class="progress">
+                                        <div class="progress-bar" role="progressbar" style="width: 45%"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>Risk Level</span>
+                                        <span id="mobileRisk">--</span>
+                                    </div>
+                                    <div class="progress">
+                                        <div class="progress-bar" role="progressbar" style="width: 25%"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary mb-3" id="btnSyncMobile">
+                                        <i class="fas fa-sync me-1"></i> Sync Data
+                                    </button>
+                                    <p class="small text-muted">Last sync: <span id="lastSync">Never</span></p>
+                                </div>
+                                
+                                <div class="mobile-nav">
+                                    <div class="nav-item active">
+                                        <i class="fas fa-home"></i>
+                                        <span>Home</span>
+                                    </div>
+                                    <div class="nav-item">
+                                        <i class="fas fa-chart-line"></i>
+                                        <span>Stats</span>
+                                    </div>
+                                    <div class="nav-item">
+                                        <i class="fas fa-plus-circle"></i>
+                                        <span>Add</span>
+                                    </div>
+                                    <div class="nav-item">
+                                        <i class="fas fa-bell"></i>
+                                        <span>Alerts</span>
+                                    </div>
+                                    <div class="nav-item">
+                                        <i class="fas fa-user"></i>
+                                        <span>Profile</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column - Analytics and Visualization -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-chart-line me-2"></i> Health Analytics
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card metric-card">
+                                    <div class="metric-value" id="avgGlucose">--</div>
+                                    <div class="metric-label">Avg Glucose (mg/dL)</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card metric-card">
+                                    <div class="metric-value" id="avgHba1c">--</div>
+                                    <div class="metric-label">Avg HbA1c (%)</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card metric-card">
+                                    <div class="metric-value" id="riskTrend">--</div>
+                                    <div class="metric-label">Risk Trend</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card metric-card">
+                                    <div class="metric-value" id="dataPoints">0</div>
+                                    <div class="metric-label">Data Points</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <ul class="nav nav-tabs" id="analyticsTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="glucose-tab" data-bs-toggle="tab" data-bs-target="#glucose" type="button" role="tab">Glucose Trend</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="risk-tab" data-bs-toggle="tab" data-bs-target="#risk" type="button" role="tab">Risk Progression</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="correlation-tab" data-bs-toggle="tab" data-bs-target="#correlation" type="button" role="tab">Correlations</button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content p-3 border-top-0 border" id="analyticsTabsContent">
+                            <div class="tab-pane fade show active" id="glucose" role="tabpanel">
+                                <div class="chart-container">
+                                    <canvas id="glucoseChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="risk" role="tabpanel">
+                                <div class="chart-container">
+                                    <canvas id="riskChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="correlation" role="tabpanel">
+                                <div class="chart-container">
+                                    <canvas id="correlationChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <i class="fas fa-history me-2"></i> Recent Records
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Glucose</th>
+                                        <th>HbA1c</th>
+                                        <th>Risk</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recordsTable">
+                                    <tr>
+                                        <td colspan="5" class="text-center">No records yet</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-download me-1"></i> Export Data
+                                </button>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-trash me-1"></i> Clear History
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light text-center py-3 mt-5">
+        <div class="container">
+            <p class="mb-0">GlucoWatch - Diabetes Monitoring System &copy; 2023</p>
+            <small class="text-muted">This is a demonstration interface. For medical advice, consult healthcare professionals.</small>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js"></script>
+    <script>
+        // Replace with your FontAwesome kit code
+        document.addEventListener('DOMContentLoaded', function() {
+            // Sample data for demonstration
+            const sampleData = {
+                glucoseLevel: 142,
+                hba1c: 6.8,
+                bpSystolic: 132,
+                bpDiastolic: 84,
+                bmi: 26.7,
+                age: 48,
+                activityLevel: 6,
+                familyHistory: true,
+                medicationAdherence: 75,
+                notes: "After lunch reading"
+            };
+            
+            // Initialize charts
+            initCharts();
+            
+            // Load sample data button
+            document.getElementById('btnLoadSample').addEventListener('click', function() {
+                document.getElementById('glucoseLevel').value = sampleData.glucoseLevel;
+                document.getElementById('hba1c').value = sampleData.hba1c;
+                document.getElementById('bpSystolic').value = sampleData.bpSystolic;
+                document.getElementById('bpDiastolic').value = sampleData.bpDiastolic;
+                document.getElementById('bmi').value = sampleData.bmi;
+                document.getElementById('age').value = sampleData.age;
+                document.getElementById('activityLevel').value = sampleData.activityLevel;
+                document.getElementById('familyHistory').checked = sampleData.familyHistory;
+                document.getElementById('medicationAdherence').value = sampleData.medicationAdherence;
+                document.getElementById('notes').value = sampleData.notes;
+            });
+            
+            // Form submission
+            document.getElementById('healthForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                calculateRisk();
+            });
+            
+            // Mobile sync button
+            document.getElementById('btnSyncMobile').addEventListener('click', function() {
+                syncMobileData();
+            });
+            
+            // Initialize with sample data for demonstration
+            document.getElementById('btnLoadSample').click();
+            
+            // Simulate initial data
+            simulateHistoricalData();
+        });
+        
+        function calculateRisk() {
+            // Get form values
+            const glucose = parseFloat(document.getElementById('glucoseLevel').value);
+            const hba1c = parseFloat(document.getElementById('hba1c').value);
+            const bpSystolic = parseInt(document.getElementById('bpSystolic').value);
+            const bpDiastolic = parseInt(document.getElementById('bpDiastolic').value);
+            const bmi = parseFloat(document.getElementById('bmi').value);
+            const age = parseInt(document.getElementById('age').value);
+            const activity = parseInt(document.getElementById('activityLevel').value);
+            const familyHistory = document.getElementById('familyHistory').checked;
+            const medication = parseInt(document.getElementById('medicationAdherence').value);
+            
+            // Simple risk calculation algorithm (for demonstration only)
+            // In a real application, this would use a trained machine learning model
+            let riskScore = 0;
+            
+            // Glucose contribution (0-30 points)
+            riskScore += Math.max(0, Math.min(30, (glucose - 100) * 0.3));
+            
+            // HbA1c contribution (0-25 points)
+            riskScore += Math.max(0, Math.min(25, (hba1c - 5.7) * 5));
+            
+            // BMI contribution (0-15 points)
+            riskScore += Math.max(0, Math.min(15, (bmi - 25) * 0.6));
+            
+            // Age contribution (0-10 points)
+            riskScore += Math.max(0, Math.min(10, (age - 30) * 0.2));
+            
+            // Activity level (0-10 points, inverse)
+            riskScore += Math.max(0, Math.min(10, (10 - activity)));
+            
+            // Family history (0 or 10 points)
+            riskScore += familyHistory ? 10 : 0;
+            
+            // Medication adherence (0-10 points, inverse)
+            riskScore += Math.max(0, Math.min(10, (100 - medication) * 0.1));
+            
+            // Normalize to 0-100 scale
+            riskScore = Math.min(100, Math.max(0, riskScore));
+            
+            // Calculate confidence (simulated)
+            const confidence = 85 + Math.random() * 10;
+            
+            // Determine risk category
+            let riskCategory, riskClass;
+            if (riskScore < 30) {
+                riskCategory = "Low Risk";
+                riskClass = "risk-low";
+            } else if (riskScore < 60) {
+                riskCategory = "Moderate Risk";
+                riskClass = "risk-moderate";
+            } else {
+                riskCategory = "High Risk";
+                riskClass = "risk-high";
+            }
+            
+            // Generate interpretation
+            let interpretation;
+            if (riskScore < 30) {
+                interpretation = "Your current health metrics suggest a low risk for diabetes complications. Continue maintaining your current lifestyle and medication regimen.";
+            } else if (riskScore < 60) {
+                interpretation = "Your health metrics indicate moderate risk. Consider lifestyle modifications and regular monitoring. Consult with your healthcare provider for personalized advice.";
+            } else {
+                interpretation = "Your health metrics show high risk. Please consult with your healthcare provider for immediate attention and a comprehensive management plan.";
+            }
+            
+            // Display results
+            const resultElement = document.getElementById('predictionResult');
+            resultElement.classList.remove('d-none', 'risk-low', 'risk-moderate', 'risk-high');
+            resultElement.classList.add(riskClass);
+            
+            document.getElementById('riskCategory').textContent = riskCategory;
+            document.getElementById('riskCategory').className = riskClass;
+            document.getElementById('riskProbability').textContent = `Probability: ${riskScore.toFixed(1)}%`;
+            document.getElementById('confidenceScore').textContent = `Confidence: ${confidence.toFixed(1)}%`;
+            document.getElementById('riskInterpretation').textContent = interpretation;
+            document.getElementById('calculationTime').textContent = "Calculated just now";
+            
+            // Update mobile preview
+            document.getElementById('mobileGlucose').textContent = `${glucose} mg/dL`;
+            document.getElementById('mobileHba1c').textContent = `${hba1c}%`;
+            document.getElementById('mobileRisk').textContent = riskCategory;
+            
+            // Update progress bars in mobile view
+            document.querySelectorAll('.progress-bar')[0].style.width = `${Math.min(100, (glucose - 70) / 3.3)}%`;
+            document.querySelectorAll('.progress-bar')[1].style.width = `${Math.min(100, (hba1c - 4) * 8.33)}%`;
+            document.querySelectorAll('.progress-bar')[2].style.width = `${riskScore}%`;
+            
+            // Add to history
+            addToHistory(glucose, hba1c, riskScore, riskCategory);
+            
+            // Update analytics
+            updateAnalytics();
+        }
+        
+        function addToHistory(glucose, hba1c, riskScore, riskCategory) {
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            const tableBody = document.getElementById('recordsTable');
+            
+            // If it's the initial empty state, clear it
+            if (tableBody.rows.length === 1 && tableBody.rows[0].cells[0].colSpan) {
+                tableBody.innerHTML = '';
+            }
+            
+            const newRow = tableBody.insertRow(0);
+            newRow.innerHTML = `
+                <td>${formattedDate}</td>
+                <td>${glucose} mg/dL</td>
+                <td>${hba1c}%</td>
+                <td class="${riskCategory === 'Low Risk' ? 'risk-low' : riskCategory === 'Moderate Risk' ? 'risk-moderate' : 'risk-high'}">${riskCategory}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-chart-line"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            
+            // Update data points count
+            document.getElementById('dataPoints').textContent = tableBody.rows.length;
+        }
+        
+        function syncMobileData() {
+            const syncButton = document.getElementById('btnSyncMobile');
+            syncButton.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i> Syncing';
+            syncButton.disabled = true;
+            
+            setTimeout(function() {
+                syncButton.innerHTML = '<i class="fas fa-sync me-1"></i> Sync Data';
+                syncButton.disabled = false;
+                
+                const now = new Date();
+                document.getElementById('lastSync').textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                // Show success feedback
+                const toast = document.createElement('div');
+                toast.className = 'alert alert-success alert-dismissible fade show position-fixed';
+                toast.style.bottom = '20px';
+                toast.style.right = '20px';
+                toast.style.zIndex = '1050';
+                toast.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>Sync successful!</strong> Data updated with mobile app.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(toast);
+                
+                // Auto remove after 3 seconds
+                setTimeout(function() {
+                    toast.classList.remove('show');
+                    setTimeout(function() {
+                        document.body.removeChild(toast);
+                    }, 500);
+                }, 3000);
+            }, 1500);
+        }
+        
+        function initCharts() {
+            // Glucose Trend Chart
+            const glucoseCtx = document.getElementById('glucoseChart').getContext('2d');
+            window.glucoseChart = new Chart(glucoseCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Glucose Level',
+                        data: [],
+                        borderColor: '#4a6fa5',
+                        backgroundColor: 'rgba(74, 111, 165, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            suggestedMin: 70,
+                            suggestedMax: 200
+                        }
+                    }
+                }
+            });
+            
+            // Risk Progression Chart
+            const riskCtx = document.getElementById('riskChart').getContext('2d');
+            window.riskChart = new Chart(riskCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Risk Score',
+                        data: [],
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+            
+            // Correlation Chart
+            const correlationCtx = document.getElementById('correlationChart').getContext('2d');
+            window.correlationChart = new Chart(correlationCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Glucose vs HbA1c',
+                        data: [],
+                        backgroundColor: '#4a6fa5'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Glucose Level (mg/dL)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'HbA1c (%)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function simulateHistoricalData() {
+            // Generate sample historical data for demonstration
+            const now = new Date();
+            const glucoseData = [];
+            const riskData = [];
+            const correlationData = [];
+            const labels = [];
+            
+            let currentGlucose = 130 + Math.random() * 40;
+            let currentRisk = 30 + Math.random() * 30;
+            
+            for (let i = 30; i >= 0; i--) {
+                const date = new Date(now);
+                date.setDate(date.getDate() - i);
+                
+                // Simulate natural fluctuations
+                currentGlucose += (Math.random() - 0.5) * 20;
+                currentGlucose = Math.max(70, Math.min(250, currentGlucose));
+                
+                currentRisk += (Math.random() - 0.5) * 10;
+                currentRisk = Math.max(5, Math.min(95, currentRisk));
+                
+                const hba1c = 5.0 + (currentGlucose - 100) * 0.02 + (Math.random() - 0.5) * 0.5;
+                
+                labels.push(date.toLocaleDateString([], {month: 'short', day: 'numeric'}));
+                glucoseData.push({x: date.toISOString().split('T')[0], y: currentGlucose});
+                riskData.push({x: date.toISOString().split('T')[0], y: currentRisk});
+                correlationData.push({x: currentGlucose, y: hba1c});
+            }
+            
+            // Update charts with simulated data
+            window.glucoseChart.data.labels = labels;
+            window.glucoseChart.data.datasets[0].data = glucoseData;
+            window.glucoseChart.update();
+            
+            window.riskChart.data.labels = labels;
+            window.riskChart.data.datasets[0].data = riskData;
+            window.riskChart.update();
+            
+            window.correlationChart.data.datasets[0].data = correlationData;
+            window.correlationChart.update();
+            
+            // Update metrics
+            const avgGlucose = glucoseData.reduce((sum, point) => sum + point.y, 0) / glucoseData.length;
+            const avgHba1c = correlationData.reduce((sum, point) => sum + point.y, 0) / correlationData.length;
+            
+            document.getElementById('avgGlucose').textContent = avgGlucose.toFixed(1);
+            document.getElementById('avgHba1c').textContent = avgHba1c.toFixed(1);
+            
+            // Calculate risk trend (last 7 days vs previous 7 days)
+            const recentRisk = riskData.slice(-7).reduce((sum, point) => sum + point.y, 0) / 7;
+            const previousRisk = riskData.slice(-14, -7).reduce((sum, point) => sum + point.y, 0) / 7;
+            const trend = recentRisk - previousRisk;
+            
+            document.getElementById('riskTrend').textContent = trend >= 0 ? `+${trend.toFixed(1)}` : trend.toFixed(1);
+            document.getElementById('riskTrend').style.color = trend >= 0 ? '#e74c3c' : '#2ecc71';
+            
+            document.getElementById('dataPoints').textContent = glucoseData.length;
+        }
+        
+        function updateAnalytics() {
+            // This would update charts with new data in a real application
+            // For demonstration, we'll just simulate a slight update
+            setTimeout(() => {
+                simulateHistoricalData();
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
